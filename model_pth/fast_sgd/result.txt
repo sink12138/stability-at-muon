@@ -1,0 +1,7 @@
+Total epochs: 30.00
+Initial loss: 1.7128
+Final loss: 1.4106
+Initial error: 62.90%
+Final error: 43.26%
+Best error: 5.68% at epoch 30.00
+Best loss: 0.1855 at epoch 30.00

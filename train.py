@@ -14,6 +14,7 @@ import numpy as np
 
 import models, wideresnet
 from PGD_Attack import L2PGDAttack, LinfPGDAttack
+from Muon import SingleDeviceMuon, SingleDeviceMuonWithAuxAdam
 
 
 def main():
@@ -32,6 +33,13 @@ def main():
     parser.add_argument('--fast_lr', type=float, default=64.0)
     parser.add_argument('--free_lr', type=float, default=128.0)
     parser.add_argument('--free_step', type=int, default=4)
+
+    parser.add_argument('--optimizer', type=str, default='sgd', choices=('sgd', 'adam', 'muon', 'muon_aux'))
+    parser.add_argument('--muon_lr', type=float, default=1e-1)
+    parser.add_argument('--muon_momentum', type=float, default=0.95)
+    parser.add_argument('--adam_lr', type=float, default=1e-3)
+    parser.add_argument('--adam_betas', nargs=2, type=float, default=[0.9, 0.95])
+    parser.add_argument('--adam_eps', type=float, default=1e-8)
 
     parser.add_argument('--save_path', type=str)
 
@@ -82,7 +90,23 @@ def main():
         net = models.WideResNet(34, num_classes=num_classes, widen_factor=10, dropRate=0.0)
 
     net = net.cuda()
-    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.weight_decay)
+    
+    if args.optimizer == 'sgd':
+        optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.weight_decay)
+    elif args.optimizer == 'adam':
+        optimizer = optim.Adam(net.parameters(), lr=args.adam_lr, betas=args.adam_betas, eps=args.adam_eps, weight_decay=args.weight_decay)
+    elif args.optimizer == 'muon':
+        # Use only Muon optimizer for all parameters (recommended only for matrix parameters)
+        optimizer = SingleDeviceMuon(net.parameters(), lr=args.muon_lr, momentum=args.muon_momentum, weight_decay=args.weight_decay)
+    elif args.optimizer == 'muon_aux':
+        # Use Muon for matrix parameters and Adam for scalar parameters
+        hidden_matrix_params = [p for p in net.parameters() if p.ndim >= 2]
+        scalar_params = [p for p in net.parameters() if p.ndim < 2]
+        
+        muon_group = dict(params=hidden_matrix_params, lr=args.muon_lr, momentum=args.muon_momentum, weight_decay=args.weight_decay, use_muon=True)
+        adam_group = dict(params=scalar_params, lr=args.adam_lr, betas=args.adam_betas, eps=args.adam_eps, weight_decay=args.weight_decay, use_muon=False)
+        param_groups = [muon_group, adam_group]
+        optimizer = SingleDeviceMuonWithAuxAdam(param_groups)
 
     trainF = open(os.path.join(args.save_path, 'train.csv'), 'w')
     testF = open(os.path.join(args.save_path, 'test.csv'), 'w')
