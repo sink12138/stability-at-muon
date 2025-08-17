@@ -95,9 +95,9 @@ def main():
         optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.weight_decay)
     elif args.optimizer == 'adam':
         optimizer = optim.Adam(net.parameters(), lr=args.adam_lr, betas=args.adam_betas, eps=args.adam_eps, weight_decay=args.weight_decay)
-    elif args.optimizer == 'muon':
-        # Use only Muon optimizer for all parameters (recommended only for matrix parameters)
-        optimizer = SingleDeviceMuon(net.parameters(), lr=args.muon_lr, momentum=args.muon_momentum, weight_decay=args.weight_decay)
+    # elif args.optimizer == 'muon':
+    #     # Use only Muon optimizer for all parameters (recommended only for matrix parameters)
+    #     optimizer = SingleDeviceMuon(net.parameters(), lr=args.muon_lr, momentum=args.muon_momentum, weight_decay=args.weight_decay)
     elif args.optimizer == 'muon_aux':
         # Use Muon for matrix parameters and Adam for scalar parameters
         hidden_matrix_params = [p for p in net.parameters() if p.ndim >= 2]
