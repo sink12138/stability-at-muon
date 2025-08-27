@@ -115,6 +115,8 @@ def main():
         PGD_Attacker = LinfPGDAttack(net, eps=args.eps, alpha=args.eps/4, steps=10, random_start=True)
     elif args.attack == 'L2':
         PGD_Attacker = L2PGDAttack(net, eps=args.eps, alpha=args.eps/4, steps=10, random_start=True)
+    elif args.attack == 'L2muon':
+        PGD_Attacker = MuonL2PGDAttack(net, eps=args.eps, alpha=args.eps/4, steps=10, random_start=True)
     
     for epoch in range(1, args.nEpochs + 1):
         if args.method == 'vanilla':
