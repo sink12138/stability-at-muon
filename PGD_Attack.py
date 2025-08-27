@@ -9,6 +9,8 @@ from collections.abc import Iterable
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 
+
+from Muon import muon_update
 def wrapper_method(func):
     def wrapper_func(self, *args, **kwargs):
         result = func(self, *args, **kwargs)
@@ -629,7 +631,7 @@ class LinfPGDAttack(Attack):
 
 class MuonL2PGDAttack(Attack):
     def __init__(self, model, eps=1.0, alpha=0.2, steps=10, random_start=True, 
-                 eps_for_division=1e-10, loss=nn.CrossEntropyLoss(), momentum_beta=0.95): #增加动量
+                 eps_for_division=1e-10, loss=nn.CrossEntropyLoss(), momentum_beta=0.95,ns_step=5): #增加动量和muon迭代次数
         super().__init__("MuonPGDL2", model)
         self.eps = eps
         self.alpha = alpha
@@ -640,6 +642,7 @@ class MuonL2PGDAttack(Attack):
         self.loss = loss
         self.momentum_beta = momentum_beta  #动量初始化
         self.momentum_buffer = None         #
+        self.ns_steps = ns_steps             #
 
     def forward(self, images, labels):
         images = images.clone().detach().to(self.device)
