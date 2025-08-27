@@ -13,7 +13,7 @@ import setproctitle
 import numpy as np
 
 import models, wideresnet
-from PGD_Attack import L2PGDAttack, LinfPGDAttack
+from PGD_Attack import L2PGDAttack, LinfPGDAttack, MuonL2PGDAttack
 from Muon import SingleDeviceMuon, SingleDeviceMuonWithAuxAdam
 
 
@@ -24,7 +24,7 @@ def main():
     parser.add_argument('--data', type=str, default='cifar10', choices=('cifar10', 'cifar100'))
 
     parser.add_argument('--method', type=str, default='vanilla', choices=('vanilla', 'fast', 'free'))
-    parser.add_argument('--attack', type=str, default='L2', choices=('Linf', 'L2'))
+    parser.add_argument('--attack', type=str, default='L2', choices=('Linf', 'L2', 'L2muon'))
     parser.add_argument('--eps', type=float, default=128.0)
     parser.add_argument('--model', type=str, default='res18', choices=('res18', 'wrn34'))
 

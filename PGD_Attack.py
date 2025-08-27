@@ -642,7 +642,7 @@ class MuonL2PGDAttack(Attack):
         self.loss = loss
         self.momentum_beta = momentum_beta  #动量初始化
         self.momentum_buffer = None         #
-        self.ns_steps = ns_steps             #
+        self.ns_steps = ns_step             #
 
     def forward(self, images, labels):
         images = images.clone().detach().to(self.device)
@@ -687,11 +687,11 @@ class MuonL2PGDAttack(Attack):
                 ).reshape_as(grad)  # 确保梯度形状与输入匹配
 
             # normalize
-            grad_norms = torch.norm(momentum_grad.view(batch_size, -1), p=2, dim=1) + self.eps_for_division
-            momentum_grad = momentum_grad / grad_norms.view(batch_size, 1, 1, 1)
+            grad_norms = torch.norm(grad.view(batch_size, -1), p=2, dim=1) + self.eps_for_division
+            grad = grad / grad_norms.view(batch_size, 1, 1, 1)
 
             # update
-            adv_images = adv_images.detach() + self.alpha * momentum_grad #扰动
+            adv_images = adv_images.detach() + self.alpha * grad #扰动
 
             
             delta = adv_images - images
