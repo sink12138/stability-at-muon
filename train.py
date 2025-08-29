@@ -21,7 +21,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--batchSz', type=int, default=128)
     parser.add_argument('--nEpochs', type=int, default=200)
-    parser.add_argument('--data', type=str, default='cifar10', choices=('cifar10', 'cifar100'))
+    parser.add_argument('--data', type=str, default='cifar10', choices=('cifar10', 'cifar100', 'mnist', 'svhn'))
 
     parser.add_argument('--method', type=str, default='vanilla', choices=('vanilla', 'fast', 'free'))
     parser.add_argument('--attack', type=str, default='L2', choices=('Linf', 'L2', 'L2muon'))
@@ -55,15 +55,23 @@ def main():
         shutil.rmtree(args.save_path)
     os.makedirs(args.save_path)
 
-
-    trainTransform = transforms.Compose([
-        transforms.RandomCrop(32, padding=4),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-    ])
-    testTransform = transforms.Compose([
-        transforms.ToTensor()
-    ])
+    # 根据数据集类型设置不同的数据转换
+    if args.data == 'mnist':
+        trainTransform = transforms.Compose([
+            transforms.ToTensor(),
+        ])
+        testTransform = transforms.Compose([
+            transforms.ToTensor()
+        ])
+    else:
+        trainTransform = transforms.Compose([
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+        ])
+        testTransform = transforms.Compose([
+            transforms.ToTensor()
+        ])
 
     kwargs = {'num_workers': 0, 'pin_memory': True} 
 
@@ -73,21 +81,36 @@ def main():
     elif args.data == 'cifar100':
         trainDataset = dset.CIFAR100(root='cifar100', train=True, download=True, transform=trainTransform)
         testDataset = dset.CIFAR100(root='cifar100', train=False, download=True, transform=testTransform)
+    elif args.data == 'mnist':
+        trainDataset = dset.MNIST(root='mnist', train=True, download=True, transform=trainTransform)
+        testDataset = dset.MNIST(root='mnist', train=False, download=True, transform=testTransform)
+    elif args.data == 'svhn':
+        trainDataset = dset.SVHN(root='svhn', split='train', download=True, transform=trainTransform)
+        testDataset = dset.SVHN(root='svhn', split='test', download=True, transform=testTransform)
 
     trainLoader = DataLoader(trainDataset, batch_size=args.batchSz, shuffle=True, **kwargs)
     testLoader = DataLoader(testDataset, batch_size=args.batchSz, shuffle=False, **kwargs)
    
     lossFunc = nn.CrossEntropyLoss(reduction="mean") 
 
-    if args.data == 'cifar10' or args.data == 'svhn':
+    if args.data == 'cifar10' or args.data == 'svhn' or args.data == 'mnist':
         num_classes = 10
     elif args.data == 'cifar100':
         num_classes = 100
 
     if args.model == 'res18':
-        net = models.ResNet18(num_classes=num_classes)
+        # 对于MNIST数据集，需要修改网络的第一层卷积以适应单通道输入
+        if args.data == 'mnist':
+            net = models.ResNet18(num_classes=num_classes)
+            # 修改第一层卷积层以适应MNIST的单通道输入
+            net.conv1 = nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1, bias=False)
+        else:
+            net = models.ResNet18(num_classes=num_classes)
     elif args.model == 'wrn34':
         net = models.WideResNet(34, num_classes=num_classes, widen_factor=10, dropRate=0.0)
+        # 对于MNIST数据集，需要修改WideResNet的第一层卷积以适应单通道输入
+        if args.data == 'mnist':
+            net.conv1 = nn.Conv2d(1, 16, kernel_size=3, stride=1, padding=1, bias=False)
 
     net = net.cuda()
     
@@ -126,6 +149,8 @@ def main():
                 Fast_Attacker = LinfPGDAttack(net, eps=args.eps, alpha=args.fast_lr, steps=1, random_start=True)
             elif args.attack == 'L2':
                 Fast_Attacker = L2PGDAttack(net, eps=args.eps, alpha=args.fast_lr, steps=1, random_start=True)
+            elif args.attack == 'L2muon':
+                Fast_Attacker = MuonL2PGDAttack(net, eps=args.eps, alpha=args.fast_lr, steps=1, random_start=True)
             train(args, epoch, net, trainLoader, optimizer, trainF, lossFunc, Fast_Attacker)
         elif args.method == 'free':
             train_free(args, epoch, net, trainLoader, optimizer, trainF, lossFunc)
@@ -234,7 +259,7 @@ def train_free(args, epoch, net, trainLoader, optimizer, trainF, lossFunc):
     for batch_idx, (data, target) in enumerate(trainLoader):
         data, target = data.cuda(), target.cuda()
 
-
+        # 初始化对抗扰动
         if args.attack == 'L2':
             delta = torch.empty_like(data).normal_()
             d_flat = delta.view(data.size(0),-1)
@@ -259,10 +284,10 @@ def train_free(args, epoch, net, trainLoader, optimizer, trainF, lossFunc):
             delta_grad = delta.grad.detach()
 
             if args.attack == 'L2':
-                delta_grad_norm = torch.norm(delta_grad, p=2,dim=(1,2,3)).view(-1, 1,1,1).repeat(1, 3,32,32) + 1e-12
+                delta_grad_norm = torch.norm(delta_grad, p=2,dim=(1,2,3)).view(-1, 1,1,1).repeat(1, data.size(1), data.size(2), data.size(3)) + 1e-12
                 delta.data = delta.data + args.free_lr * delta_grad / delta_grad_norm
 
-                delta_norm = torch.norm(delta.data, p=2,dim=(1,2,3)).view(-1, 1,1,1).repeat(1, 3,32,32) + 1e-12
+                delta_norm = torch.norm(delta.data, p=2,dim=(1,2,3)).view(-1, 1,1,1).repeat(1, data.size(1), data.size(2), data.size(3)) + 1e-12
                 delta.data = ~(delta_norm > args.eps) * delta.data + args.eps * delta.data * (delta_norm > args.eps) / delta_norm
             elif args.attack == 'Linf': 
                 delta.data = delta.data + args.free_lr * torch.sign(delta_grad) 
@@ -270,7 +295,6 @@ def train_free(args, epoch, net, trainLoader, optimizer, trainF, lossFunc):
 
             delta.grad.zero_()
             optimizer.step()
-
 
         nProcessed += len(data)
         pred = output.data.max(1)[1] 
@@ -284,8 +308,6 @@ def train_free(args, epoch, net, trainLoader, optimizer, trainF, lossFunc):
 
         trainF.write('{},{},{}\n'.format(partialEpoch, loss.item(), err))
         trainF.flush()
-
-
 
 
 

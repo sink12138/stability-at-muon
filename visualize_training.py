@@ -109,11 +109,13 @@ def main():
         plt.close()
     else:
         path = args.paths[0] if args.paths else '.'
+        save_dir = os.path.join('model_pth', path)
         train_path = os.path.join('model_pth', path, 'train.csv')
         test_path = os.path.join('model_pth', path, 'test.csv')
+        print(train_path, path)
 
-        plot_data_and_save(train_path, path)
-        plot_data_and_save(test_path, path)
+        plot_data_and_save(train_path, save_dir)
+        plot_data_and_save(test_path, save_dir)
 
 if __name__ == "__main__":
     main()
