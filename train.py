@@ -40,7 +40,8 @@ def main():
     parser.add_argument('--adam_lr', type=float, default=1e-3)
     parser.add_argument('--adam_betas', nargs=2, type=float, default=[0.9, 0.95])
     parser.add_argument('--adam_eps', type=float, default=1e-8)
-
+    parser.add_argument('--muon_beta', type=float, default=0.95)
+    parser.add_argument('--ns_steps', type=int, default=5)
     parser.add_argument('--save_path', type=str)
 
     args = parser.parse_args()
@@ -310,6 +311,87 @@ def train_free(args, epoch, net, trainLoader, optimizer, trainF, lossFunc):
         trainF.flush()
 
 
+from muon import muon_update  
+
+def train_free_muon(args, epoch, net, trainLoader, optimizer, trainF, lossFunc):
+    net.train()
+    nProcessed = 0
+    nTrain = len(trainLoader.dataset)
+    
+    momentum_buffer = None
+    
+    for batch_idx, (data, target) in enumerate(trainLoader):
+        data, target = data.cuda(), target.cuda()
+        batch_size = data.size(0)
+        
+        if momentum_buffer is None or momentum_buffer.size(0) != batch_size:
+            momentum_buffer = torch.zeros_like(data).cuda()
+        
+        if args.attack == 'L2':
+            delta = torch.empty_like(data).normal_()
+            d_flat = delta.view(data.size(0),-1)
+            n = d_flat.norm(p=2,dim=1).view(data.size(0),1,1,1)
+            r = torch.zeros_like(n).uniform_(0, 1)
+            delta *= r/n*args.eps
+        elif args.attack == 'Linf':
+            delta = torch.empty_like(data).uniform_(-args.eps, args.eps)
+        
+        delta = delta.cuda()
+        delta.requires_grad = True
+
+        net.train()
+
+        for _ in range(args.free_step):
+            output = net(torch.clamp(data + delta, min=0.0, max=1.0))
+            loss = lossFunc(output, target)
+
+            optimizer.zero_grad()
+            loss.backward()
+
+            delta_grad = delta.grad.detach()
+            
+            momentum_buffer = muon_momentum_update(
+                grad=delta_grad,
+                momentum=momentum_buffer,
+                beta=args.muon_beta,
+                ns_steps=args.ns_steps,
+                nesterov=False
+            )
+            
+        
+            if args.attack == 'L2':
+                delta_grad_norm = torch.norm(momentum_buffer, p=2, dim=(1,2,3)).view(-1, 1,1,1)
+                delta_grad_norm = delta_grad_norm.repeat(1, data.size(1), data.size(2), data.size(3)) + 1e-12
+                delta.data = delta.data + args.free_lr * momentum_buffer / delta_grad_norm
+
+                delta_norm = torch.norm(delta.data, p=2, dim=(1,2,3)).view(-1, 1,1,1)
+                delta_norm = delta_norm.repeat(1, data.size(1), data.size(2), data.size(3)) + 1e-12
+                delta.data = torch.where(
+                    delta_norm > args.eps,
+                    args.eps * delta.data / delta_norm,
+                    delta.data
+                )
+            elif args.attack == 'Linf': 
+                delta.data = delta.data + args.free_lr * torch.sign(momentum_buffer) 
+                delta.data = torch.clamp(delta.data, min=-args.eps, max=args.eps)
+
+            delta.grad.zero_()
+            optimizer.step()
+
+        nProcessed += len(data)
+        pred = output.data.max(1)[1] 
+        incorrect = pred.ne(target.data).cpu().sum()
+        err = 100.*incorrect/len(data)
+        partialEpoch = epoch + batch_idx / len(trainLoader) - 1
+        if batch_idx % (len(trainLoader)//10) == 0: 
+            print('Train Epoch: {:.2f} [{}/{} ({:.1f}%)]\tLoss: {:.6f}\tError: {:.6f}'.format(
+            partialEpoch, nProcessed, nTrain, 100. * batch_idx / len(trainLoader),
+            loss.item(), err))
+
+        trainF.write('{},{},{}\n'.format(partialEpoch, loss.item(), err))
+        trainF.flush()
+    
+    
 
 
 if __name__=='__main__':
