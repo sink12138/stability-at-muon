@@ -61,7 +61,8 @@ def plot_compare(paths):
         data = load_data(path)
         if data is not None:
             color = colors[i % len(colors)]
-            label = path.split(os.sep)[1]
+            # label = path.split(os.sep)[1]
+            label = path.split('\\')[1].split('.')[0].upper()
             
             # ax1.plot(data['epoch'], data['loss'], color=color, linewidth=1.0, alpha=0.3)
             smoothed_loss = smooth_curve(data['loss'].values)
@@ -95,18 +96,18 @@ def main():
         train_csv_files = []
         test_csv_files = []
         for path in args.paths:
-            train_file = os.path.join('model_pth', path, 'train.csv')
-            test_file = os.path.join('model_pth', path, 'test.csv')
+            train_file = os.path.join('vis', f'{path}.csv')
+            # test_file = os.path.join('model_pth', path, 'test.csv')
             train_csv_files.append(train_file)
-            test_csv_files.append(test_file)
+            # test_csv_files.append(test_file)
         
         plot_compare(train_csv_files)
-        plt.savefig('train_comparison.png')
+        plt.savefig('1.png')
         plt.close()
 
-        plot_compare(test_csv_files)
-        plt.savefig('test_comparison.png')
-        plt.close()
+        # plot_compare(test_csv_files)
+        # plt.savefig('test_comparison.png')
+        # plt.close()
     else:
         path = args.paths[0] if args.paths else '.'
         save_dir = os.path.join('model_pth', path)
