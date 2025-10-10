@@ -39,7 +39,20 @@ def muon_update(grad, momentum, beta=0.95, ns_steps=5, nesterov=True):
     update = zeropower_via_newtonschulz5(update, steps=ns_steps)
     update *= max(1, grad.size(-2) / grad.size(-1))**0.5
     return update
-
+    
+def muon_update_new(grad, momentum, beta=0.95, ns_steps=5, nesterov=True):
+    if nesterov:
+        momentum.mul_(beta).add_(grad, alpha=1 - beta)
+        update = grad.add(momentum, alpha=beta)
+    else:
+        momentum.mul_(beta).add_(grad, alpha=1 - beta)
+        update = momentum.clone()
+    
+    if update.ndim == 4:
+        update = update.view(len(update), -1)
+    update = zeropower_via_newtonschulz5(update, steps=ns_steps)
+    update *= max(1, grad.size(-2) / grad.size(-1))**0.5
+    return update
 
 class Muon(torch.optim.Optimizer):
     """
