@@ -767,7 +767,7 @@ class MuonL2PGDAttack_new(Attack):
                 grad = torch.autograd.grad(cost, adv_images, retain_graph=False, create_graph=False)[0]
 
 
-            update = muon_update(
+            update = muon_update_new(
                 grad=grad,
                 momentum=self.momentum_buffer,
                 beta=self.momentum_beta,
