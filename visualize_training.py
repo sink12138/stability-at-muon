@@ -96,7 +96,7 @@ def main():
         train_csv_files = []
         test_csv_files = []
         for path in args.paths:
-            train_file = os.path.join('vis', f'{path}.csv')
+            train_file = os.path.join('model_pth', path, 'train.csv')
             # test_file = os.path.join('model_pth', path, 'test.csv')
             train_csv_files.append(train_file)
             # test_csv_files.append(test_file)

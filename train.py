@@ -21,7 +21,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--batchSz', type=int, default=128)
     parser.add_argument('--nEpochs', type=int, default=200)
-    parser.add_argument('--data', type=str, default='cifar10', choices=('cifar10', 'cifar100', 'mnist', 'svhn'))
+    parser.add_argument('--data', type=str, default='cifar10', choices=('cifar10', 'cifar100', 'mnist', 'svhn', 'fashionmnist', 'tinyimagenet'))
 
     parser.add_argument('--method', type=str, default='vanilla', choices=('vanilla', 'fast', 'free'))
     parser.add_argument('--attack', type=str, default='L2', choices=('Linf', 'L2', 'L2muon'))
@@ -34,7 +34,7 @@ def main():
     parser.add_argument('--free_lr', type=float, default=128.0)
     parser.add_argument('--free_step', type=int, default=4)
 
-    parser.add_argument('--optimizer', type=str, default='sgd', choices=('sgd', 'adam', 'muon', 'muon_aux'))
+    parser.add_argument('--optimizer', type=str, default='sgd', choices=('sgd', 'adam', 'muon_aux'))
     parser.add_argument('--muon_lr', type=float, default=1e-1)
     parser.add_argument('--muon_momentum', type=float, default=0.95)
     parser.add_argument('--adam_lr', type=float, default=1e-3)
@@ -57,7 +57,7 @@ def main():
     os.makedirs(args.save_path)
 
     # 根据数据集类型设置不同的数据转换
-    if args.data == 'mnist':
+    if args.data == 'mnist' or args.data == 'fashionmnist':
         trainTransform = transforms.Compose([
             transforms.ToTensor(),
         ])
@@ -88,20 +88,29 @@ def main():
     elif args.data == 'svhn':
         trainDataset = dset.SVHN(root='svhn', split='train', download=True, transform=trainTransform)
         testDataset = dset.SVHN(root='svhn', split='test', download=True, transform=testTransform)
+    elif args.data == 'fashionmnist':
+        trainDataset = dset.FashionMNIST(root='fashionmnist', train=True, download=True, transform=trainTransform)
+        testDataset = dset.FashionMNIST(root='fashionmnist', train=False, download=True, transform=testTransform)
+    elif args.data == 'tinyimagenet':
+        # For Tiny ImageNet, we expect the data to be organized in folders
+        trainDataset = dset.ImageFolder(root='tiny-imagenet-200/train', transform=trainTransform)
+        testDataset = dset.ImageFolder(root='tiny-imagenet-200/val', transform=testTransform)
 
     trainLoader = DataLoader(trainDataset, batch_size=args.batchSz, shuffle=True, **kwargs)
     testLoader = DataLoader(testDataset, batch_size=args.batchSz, shuffle=False, **kwargs)
    
     lossFunc = nn.CrossEntropyLoss(reduction="mean") 
 
-    if args.data == 'cifar10' or args.data == 'svhn' or args.data == 'mnist':
+    if args.data == 'cifar10' or args.data == 'svhn' or args.data == 'mnist' or args.data == 'fashionmnist':
         num_classes = 10
     elif args.data == 'cifar100':
         num_classes = 100
+    elif args.data == 'tinyimagenet':
+        num_classes = 200
 
     if args.model == 'res18':
-        # 对于MNIST数据集，需要修改网络的第一层卷积以适应单通道输入
-        if args.data == 'mnist':
+        # 对于MNIST和Fashion-MNIST数据集，需要修改网络的第一层卷积以适应单通道输入
+        if args.data == 'mnist' or args.data == 'fashionmnist':
             net = models.ResNet18(num_classes=num_classes)
             # 修改第一层卷积层以适应MNIST的单通道输入
             net.conv1 = nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1, bias=False)
@@ -109,8 +118,8 @@ def main():
             net = models.ResNet18(num_classes=num_classes)
     elif args.model == 'wrn34':
         net = models.WideResNet(34, num_classes=num_classes, widen_factor=10, dropRate=0.0)
-        # 对于MNIST数据集，需要修改WideResNet的第一层卷积以适应单通道输入
-        if args.data == 'mnist':
+        # 对于MNIST和Fashion-MNIST数据集，需要修改WideResNet的第一层卷积以适应单通道输入
+        if args.data == 'mnist' or args.data == 'fashionmnist':
             net.conv1 = nn.Conv2d(1, 16, kernel_size=3, stride=1, padding=1, bias=False)
 
     net = net.cuda()
@@ -267,6 +276,12 @@ def train_free(args, epoch, net, trainLoader, optimizer, trainF, lossFunc):
             n = d_flat.norm(p=2,dim=1).view(data.size(0),1,1,1)
             r = torch.zeros_like(n).uniform_(0, 1)
             delta *= r/n*args.eps
+        elif args.attack == 'L2muon':
+            delta = torch.empty_like(data).normal_()
+            d_flat = delta.view(data.size(0),-1)
+            n = d_flat.norm(p=2,dim=1).view(data.size(0),1,1,1)
+            r = torch.zeros_like(n).uniform_(0, 1)
+            delta *= r/n*args.eps
         elif args.attack == 'Linf':
             delta = torch.empty_like(data).uniform_(-args.eps, args.eps)
         
@@ -285,6 +300,12 @@ def train_free(args, epoch, net, trainLoader, optimizer, trainF, lossFunc):
             delta_grad = delta.grad.detach()
 
             if args.attack == 'L2':
+                delta_grad_norm = torch.norm(delta_grad, p=2,dim=(1,2,3)).view(-1, 1,1,1).repeat(1, data.size(1), data.size(2), data.size(3)) + 1e-12
+                delta.data = delta.data + args.free_lr * delta_grad / delta_grad_norm
+
+                delta_norm = torch.norm(delta.data, p=2,dim=(1,2,3)).view(-1, 1,1,1).repeat(1, data.size(1), data.size(2), data.size(3)) + 1e-12
+                delta.data = ~(delta_norm > args.eps) * delta.data + args.eps * delta.data * (delta_norm > args.eps) / delta_norm
+            elif args.attack == 'L2muon':
                 delta_grad_norm = torch.norm(delta_grad, p=2,dim=(1,2,3)).view(-1, 1,1,1).repeat(1, data.size(1), data.size(2), data.size(3)) + 1e-12
                 delta.data = delta.data + args.free_lr * delta_grad / delta_grad_norm
 
@@ -309,90 +330,6 @@ def train_free(args, epoch, net, trainLoader, optimizer, trainF, lossFunc):
 
         trainF.write('{},{},{}\n'.format(partialEpoch, loss.item(), err))
         trainF.flush()
-
-
-from muon import muon_update  
-
-def train_free_muon(args, epoch, net, trainLoader, optimizer, trainF, lossFunc):
-    net.train()
-    nProcessed = 0
-    nTrain = len(trainLoader.dataset)
-    
-    momentum_buffer = None
-    
-    for batch_idx, (data, target) in enumerate(trainLoader):
-        data, target = data.cuda(), target.cuda()
-        batch_size = data.size(0)
-        
-        if momentum_buffer is None or momentum_buffer.size(0) != batch_size:
-            momentum_buffer = torch.zeros_like(data).cuda()
-        
-        if args.attack == 'L2':
-            delta = torch.empty_like(data).normal_()
-            d_flat = delta.view(data.size(0),-1)
-            n = d_flat.norm(p=2,dim=1).view(data.size(0),1,1,1)
-            r = torch.zeros_like(n).uniform_(0, 1)
-            delta *= r/n*args.eps
-        elif args.attack == 'Linf':
-            delta = torch.empty_like(data).uniform_(-args.eps, args.eps)
-        
-        delta = delta.cuda()
-        delta.requires_grad = True
-
-        net.train()
-
-        for _ in range(args.free_step):
-            output = net(torch.clamp(data + delta, min=0.0, max=1.0))
-            loss = lossFunc(output, target)
-
-            optimizer.zero_grad()
-            loss.backward()
-
-            delta_grad = delta.grad.detach()
-            
-            momentum_buffer = muon_momentum_update(
-                grad=delta_grad,
-                momentum=momentum_buffer,
-                beta=args.muon_beta,
-                ns_steps=args.ns_steps,
-                nesterov=False
-            )
-            
-        
-            if args.attack == 'L2':
-                delta_grad_norm = torch.norm(momentum_buffer, p=2, dim=(1,2,3)).view(-1, 1,1,1)
-                delta_grad_norm = delta_grad_norm.repeat(1, data.size(1), data.size(2), data.size(3)) + 1e-12
-                delta.data = delta.data + args.free_lr * momentum_buffer / delta_grad_norm
-
-                delta_norm = torch.norm(delta.data, p=2, dim=(1,2,3)).view(-1, 1,1,1)
-                delta_norm = delta_norm.repeat(1, data.size(1), data.size(2), data.size(3)) + 1e-12
-                delta.data = torch.where(
-                    delta_norm > args.eps,
-                    args.eps * delta.data / delta_norm,
-                    delta.data
-                )
-            elif args.attack == 'Linf': 
-                delta.data = delta.data + args.free_lr * torch.sign(momentum_buffer) 
-                delta.data = torch.clamp(delta.data, min=-args.eps, max=args.eps)
-
-            delta.grad.zero_()
-            optimizer.step()
-
-        nProcessed += len(data)
-        pred = output.data.max(1)[1] 
-        incorrect = pred.ne(target.data).cpu().sum()
-        err = 100.*incorrect/len(data)
-        partialEpoch = epoch + batch_idx / len(trainLoader) - 1
-        if batch_idx % (len(trainLoader)//10) == 0: 
-            print('Train Epoch: {:.2f} [{}/{} ({:.1f}%)]\tLoss: {:.6f}\tError: {:.6f}'.format(
-            partialEpoch, nProcessed, nTrain, 100. * batch_idx / len(trainLoader),
-            loss.item(), err))
-
-        trainF.write('{},{},{}\n'.format(partialEpoch, loss.item(), err))
-        trainF.flush()
-    
-    
-
 
 if __name__=='__main__':
     main()

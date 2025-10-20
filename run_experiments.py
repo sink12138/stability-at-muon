@@ -2,9 +2,9 @@ import subprocess
 import itertools
 
 def main():
-    methods = ['fast']
-    optimizers = ['sgd', 'muon_aux']
-    attacks = ['L2muon']
+    methods = ['vanilla']
+    optimizers = ['sgd']
+    attacks = ['L2']
     
     args = [
         '--nEpochs', '20',
