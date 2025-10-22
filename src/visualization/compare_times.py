@@ -162,17 +162,17 @@ def group_experiments_for_comparison(experiment_names):
             'description': 'Compare SGD and Muon optimizers with same training method and attack',
             'sets': [
                 {
-                    'name': 'Vanilla + L2 Attack',
+                    'name': 'Vanilla',
                     'experiments': ['vanilla_sgd_l2', 'vanilla_muon_l2', 'vanilla_sgd_l2muon', 'vanilla_muon_l2muon'],
                     'color_styles': ['blue', 'red', 'green', 'orange']
                 },
                 {
-                    'name': 'Fast + L2 Attack',
+                    'name': 'Fast',
                     'experiments': ['fast_sgd_l2', 'fast_muon_l2', 'fast_sgd_l2muon', 'fast_muon_l2muon'],
                     'color_styles': ['blue', 'red', 'green', 'orange']
                 },
                 {
-                    'name': 'Free + L2 Attack',
+                    'name': 'Free',
                     'experiments': ['free_sgd_l2', 'free_muon_l2', 'free_sgd_l2muon', 'free_muon_l2muon'],
                     'color_styles': ['blue', 'red', 'green', 'orange']
                 }
