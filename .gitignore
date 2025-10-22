@@ -7,7 +7,6 @@ dist/
 build/
 cifar10/
 cifar100/
-mnist/
 fashionmnist/
 tiny-imagenet-200/
 *.pth

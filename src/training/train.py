@@ -21,11 +21,11 @@ from src.optimizers.muon import SingleDeviceMuonWithAuxAdam
 
 
 def create_attacker(net, attack_type, eps, alpha, steps=10, random_start=True):
-    if attack_type == 'Linf':
+    if attack_type == 'linf':
         return LinfPGDAttack(net, eps=eps, alpha=alpha, steps=steps, random_start=random_start)
-    elif attack_type == 'L2':
+    elif attack_type == 'l2':
         return L2PGDAttack(net, eps=eps, alpha=alpha, steps=steps, random_start=random_start)
-    elif attack_type == 'L2muon':
+    elif attack_type == 'l2muon':
         return MuonL2PGDAttack(net, eps=eps, alpha=alpha, steps=steps, random_start=random_start)
     else:
         raise ValueError(f"Unknown attack type: {attack_type}")
@@ -90,19 +90,19 @@ def train_free(args, epoch, net, trainLoader, optimizer, trainF, lossFunc, start
         data, target = data.cuda(), target.cuda()
 
         # 初始化对抗扰动
-        if args.attack == 'L2':
+        if args.attack == 'l2':
             delta = torch.empty_like(data).normal_()
             d_flat = delta.view(data.size(0),-1)
             n = d_flat.norm(p=2,dim=1).view(data.size(0),1,1,1)
             r = torch.zeros_like(n).uniform_(0, 1)
             delta *= r/n*args.eps
-        elif args.attack == 'L2muon':
+        elif args.attack == 'l2muon':
             delta = torch.empty_like(data).normal_()
             d_flat = delta.view(data.size(0),-1)
             n = d_flat.norm(p=2,dim=1).view(data.size(0),1,1,1)
             r = torch.zeros_like(n).uniform_(0, 1)
             delta *= r/n*args.eps
-        elif args.attack == 'Linf':
+        elif args.attack == 'linf':
             delta = torch.empty_like(data).uniform_(-args.eps, args.eps)
         
         delta = delta.cuda()
@@ -119,19 +119,19 @@ def train_free(args, epoch, net, trainLoader, optimizer, trainF, lossFunc, start
 
             delta_grad = delta.grad.detach()
 
-            if args.attack == 'L2':
+            if args.attack == 'l2':
                 delta_grad_norm = torch.norm(delta_grad, p=2,dim=(1,2,3)).view(-1, 1,1,1).repeat(1, data.size(1), data.size(2), data.size(3)) + 1e-12
                 delta.data = delta.data + args.free_lr * delta_grad / delta_grad_norm
 
                 delta_norm = torch.norm(delta.data, p=2,dim=(1,2,3)).view(-1, 1,1,1).repeat(1, data.size(1), data.size(2), data.size(3)) + 1e-12
                 delta.data = ~(delta_norm > args.eps) * delta.data + args.eps * delta.data * (delta_norm > args.eps) / delta_norm
-            elif args.attack == 'L2muon':
+            elif args.attack == 'l2muon':
                 delta_grad_norm = torch.norm(delta_grad, p=2,dim=(1,2,3)).view(-1, 1,1,1).repeat(1, data.size(1), data.size(2), data.size(3)) + 1e-12
                 delta.data = delta.data + args.free_lr * delta_grad / delta_grad_norm
 
                 delta_norm = torch.norm(delta.data, p=2,dim=(1,2,3)).view(-1, 1,1,1).repeat(1, data.size(1), data.size(2), data.size(3)) + 1e-12
                 delta.data = ~(delta_norm > args.eps) * delta.data + args.eps * delta.data * (delta_norm > args.eps) / delta_norm
-            elif args.attack == 'Linf': 
+            elif args.attack == 'linf': 
                 delta.data = delta.data + args.free_lr * torch.sign(delta_grad) 
                 delta.data = torch.clamp(delta.data, min=-args.eps, max=args.eps)
 
@@ -204,7 +204,7 @@ def main():
     parser.add_argument('--data', type=str, default='cifar10', choices=('cifar10', 'cifar100', 'fashionmnist'))
     parser.add_argument('--method', type=str, default='vanilla', choices=('vanilla', 'fast', 'free'))
     parser.add_argument('--optimizer', type=str, default='sgd', choices=('sgd', 'adam', 'muon'))
-    parser.add_argument('--attack', type=str, default='L2', choices=('Linf', 'L2', 'L2muon'))
+    parser.add_argument('--attack', type=str, default='l2', choices=('linf', 'l2', 'l2muon'))
     parser.add_argument('--model', type=str, default='res18', choices=('res18', 'wrn34'))
 
     parser.add_argument('--eps', type=float, default=128.0)

@@ -65,24 +65,31 @@ python src/visualization/visualize_training.py --input path/to/data
 ## 模块说明
 
 ### optimizers/
-包含MUON优化器的实现，这是项目的核心创新点。
+
+包含 MUON 优化器的实现，这是项目的核心创新点。
 
 ### attacks/
+
 包含各种对抗攻击算法的实现，主要用于生成对抗样本进行对抗训练。
 
 ### models/
-包含各种神经网络模型的定义，包括ResNet、WideResNet等。
+
+包含各种神经网络模型的定义，包括 ResNet、WideResNet 等。
 
 ### training/
-包含训练脚本，支持标准训练和FreeTRADES等高级训练方法。
+
+包含训练脚本，支持标准训练和 FreeTRADES 等高级训练方法。
 
 ### testing/
+
 包含模型测试脚本，支持黑盒攻击测试和迁移攻击测试。
 
 ### visualization/
+
 包含结果可视化工具，用于分析训练过程和测试结果。
 
 ### utils/
+
 包含实用工具，如批量实验运行脚本等。
 
 # 项目结构文档
@@ -129,6 +136,7 @@ stability-at-muon/
 ## 使用方法
 
 ### 通过主入口运行
+
 ```bash
 # 查看帮助
 python3 main.py --help
@@ -143,7 +151,8 @@ python3 main.py test --test-type blackbox
 python3 main.py visualize --viz-type training
 ```
 
-### 作为Python包导入
+### 作为 Python 包导入
+
 ```python
 import sys
 sys.path.append('src')
@@ -152,3 +161,5 @@ from optimizers.muon import SingleDeviceMuon
 from attacks.pgd_attack import L2PGDAttack
 from models.basic_models import ResNet18
 ```
+
+python main.py visualize --viz_type times -- --csv_path model_pth/fast_muon_l2/test.csv --output_dir model_pth/fast_adam_l2muon

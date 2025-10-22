@@ -9,7 +9,7 @@ def run_training(args):
     """Run training module"""
     script_path = os.path.join('src', 'training', 'train.py')
     
-    cmd = ['python3', script_path] + args.training_args
+    cmd = ['python', script_path] + args.training_args
     subprocess.run(cmd)
 
 def run_testing(args):
@@ -19,23 +19,27 @@ def run_testing(args):
     else:
         script_path = os.path.join('src', 'testing', 'test_transfer.py')
     
-    cmd = ['python3', script_path] + args.testing_args
+    cmd = ['python', script_path] + args.testing_args
     subprocess.run(cmd)
 
 def run_visualization(args):
     """Run visualization module"""
     if args.viz_type == 'compare':
         script_path = os.path.join('src', 'visualization', 'compare.py')
+    elif args.viz_type == 'times':
+        script_path = os.path.join('src', 'visualization', 'visualize_with_time.py')
+    elif args.viz_type == 'compare_times':
+        script_path = os.path.join('src', 'visualization', 'compare_times.py')
     else:
         script_path = os.path.join('src', 'visualization', 'visualize.py')
     
-    cmd = ['python3', script_path] + args.viz_args
+    cmd = ['python', script_path] + args.viz_args
     subprocess.run(cmd)
 
 def run_experiments(args):
     """Run experiments"""
     script_path = os.path.join('src', 'utils', 'run_experiments.py')
-    cmd = ['python3', script_path]
+    cmd = ['python', script_path]
     subprocess.run(cmd)
 
 def main():
@@ -60,7 +64,7 @@ def main():
     
     # Visualization command
     viz_parser = subparsers.add_parser('visualize', help='Run visualization')
-    viz_parser.add_argument('--viz_type', choices=['compare', 'visualize'], 
+    viz_parser.add_argument('--viz_type', choices=['compare', 'visualize', 'times', 'compare_times'], 
                            default='compare', help='Visualization type')
     viz_parser.add_argument('viz_args', nargs='*', 
                            help='Pass additional arguments to the visualization script')

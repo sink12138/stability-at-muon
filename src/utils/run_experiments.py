@@ -3,9 +3,9 @@ import itertools
 import os
 
 def main():
-    methods = ['vanilla']
-    optimizers = ['sgd']
-    attacks = ['L2']
+    methods = ['vanilla', 'fast', 'free']
+    optimizers = ['sgd', 'adam', 'muon']
+    attacks = ['l2muon']
     
     args = [
         '--nEpochs', '20',

@@ -19,9 +19,9 @@ def load_test_data(csv_path):
                     continue
                     
                 parts = line.split(',')
-                if len(parts) != 3:
-                    print(f"Warning: Line {line_num} in {csv_path} has {len(parts)} columns, expected 3. Skipping...")
-                    continue
+                # if len(parts) != 3:
+                #     print(f"Warning: Line {line_num} in {csv_path} has {len(parts)} columns, expected 3. Skipping...")
+                #     continue
                 
                 try:
                     epoch, loss, error = int(parts[0]), float(parts[1]), float(parts[2])
@@ -55,7 +55,8 @@ def discover_experiments(experiments_dir="experiments"):
         return {}
     
     experiment_paths = {}
-    for exp_dir in os.listdir(experiments_dir):
+    dirs = ['fast_muon_l2', 'fast_muon_l2muon', 'fast_sgd_l2', 'fast_sgd_l2muon', 'free_muon_l2', 'free_muon_l2muon', 'free_sgd_l2', 'free_sgd_l2muon', 'vanilla_muon_l2', 'vanilla_muon_l2muon', 'vanilla_sgd_l2', 'vanilla_sgd_l2muon']
+    for exp_dir in dirs:
         exp_path = os.path.join(experiments_dir, exp_dir)
         test_csv_path = os.path.join(exp_path, "test.csv")
         
@@ -123,7 +124,7 @@ def compare_test_curves(experiments_dir="experiments", output_dir="results/plots
     # Create comparison plots - removing accuracy plots, keeping error plots
     fig, axes = plt.subplots(2, 2, figsize=(16, 12))
     
-    colors = ['blue', 'green', 'red', 'orange', 'skyblue']
+    colors = ['blue', 'green', 'red', 'orange', 'purple', 'pink', 'gray', 'olive', 'cyan', 'magenta', 'yellow', 'black']
     
     # Plot 1: Clean Test Error Comparison
     ax1 = axes[0, 0]
@@ -146,7 +147,7 @@ def compare_test_curves(experiments_dir="experiments", output_dir="results/plots
         if not adv_test.empty:  # Check if data exists
             ax2.plot(adv_test['epoch'], adv_test['error'], 
                      label=name, color=colors[i % len(colors)], 
-                     linestyle='--', linewidth=1.5)
+                     linestyle='-', linewidth=1.5)
     ax2.set_xlabel('Epoch')
     ax2.set_ylabel('Adversarial Test Error (%)')
     ax2.set_title('Adversarial Test Error Comparison')
@@ -174,7 +175,7 @@ def compare_test_curves(experiments_dir="experiments", output_dir="results/plots
         if not adv_train.empty:  # Check if data exists
             ax4.plot(adv_train['epoch'], adv_train['error'], 
                      label=name, color=colors[i % len(colors)], 
-                     linestyle='--', linewidth=1.5)
+                     linestyle='-', linewidth=1.5)
     ax4.set_xlabel('Epoch')
     ax4.set_ylabel('Adversarial Training Error (%)')
     ax4.set_title('Adversarial Training Error Comparison')
@@ -209,7 +210,7 @@ def compare_test_curves(experiments_dir="experiments", output_dir="results/plots
             
             plt.plot(common_epochs, generalization_gap, label=f'{name}', 
                      color=colors[i % len(colors)], 
-                     linestyle='-.', linewidth=1.5)
+                     linestyle='-', linewidth=1)
     
     plt.xlabel('Epoch')
     plt.ylabel('Robustness Gap (Adv - Clean Error) (%)')
