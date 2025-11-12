@@ -87,6 +87,53 @@ def categorize_experiments(experiment_names):
     
     return categories
 
+def get_style_for_experiment(name):
+    """
+    根据实验名称返回颜色和线型
+    - fast: 实线 '-'
+    - free: 虚线 '--'
+    - vanilla: 点线 ':'
+    - 4种醒目的颜色根据优化器和攻击类型组合分配
+    """
+    # 4种醒目的对比颜色
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']  # 蓝色、橙色、绿色、红色
+    
+    # 根据训练方法确定线型
+    if name.startswith('fast_'):
+        linestyle = '-'
+    elif name.startswith('free_'):
+        linestyle = '--'
+    elif name.startswith('vanilla_'):
+        linestyle = ':'
+    else:
+        linestyle = '-'
+    
+    # 从名称中提取优化器和攻击类型
+    parts = name.split('_')
+    if len(parts) >= 3:
+        optimizer = parts[1]  # sgd, muon, adam
+        attack = parts[2]     # l2, l2muon
+        
+        # 根据优化器和攻击类型组合分配颜色
+        if optimizer == 'sgd' and attack == 'l2':
+            color = colors[0]  # 蓝色
+        elif optimizer == 'sgd' and attack == 'l2muon':
+            color = colors[1]  # 橙色
+        elif optimizer == 'muon' and attack == 'l2':
+            color = colors[2]  # 绿色
+        elif optimizer == 'muon' and attack == 'l2muon':
+            color = colors[3]  # 红色
+        elif optimizer == 'adam' and attack == 'l2':
+            color = colors[0]  # 蓝色（复用）
+        elif optimizer == 'adam' and attack == 'l2muon':
+            color = colors[1]  # 橙色（复用）
+        else:
+            color = colors[0]  # 默认蓝色
+    else:
+        color = colors[0]  # 默认颜色
+    
+    return color, linestyle
+
 
 def compare_test_curves(experiments_dir="experiments", output_dir="results/plots", show_plots=False):
     # Automatically discover all experiments
@@ -124,16 +171,15 @@ def compare_test_curves(experiments_dir="experiments", output_dir="results/plots
     # Create comparison plots - removing accuracy plots, keeping error plots
     fig, axes = plt.subplots(2, 2, figsize=(16, 12))
     
-    colors = ['blue', 'green', 'red', 'orange', 'purple', 'pink', 'gray', 'olive', 'cyan', 'magenta', 'yellow', 'black']
-    
     # Plot 1: Clean Test Error Comparison
     ax1 = axes[0, 0]
-    for i, (name, df) in enumerate(model_data.items()):
+    for name, df in model_data.items():
         clean_test = df[df['test_name'] == 'clean_test']
         if not clean_test.empty:  # Check if data exists
+            color, linestyle = get_style_for_experiment(name)
             ax1.plot(clean_test['epoch'], clean_test['error'], 
-                     label=name, color=colors[i % len(colors)], 
-                     linestyle='-', linewidth=1.5)
+                     label=name, color=color, 
+                     linestyle=linestyle, linewidth=1.5)
     ax1.set_xlabel('Epoch')
     ax1.set_ylabel('Clean Test Error (%)')
     ax1.set_title('Clean Test Error Comparison')
@@ -142,12 +188,13 @@ def compare_test_curves(experiments_dir="experiments", output_dir="results/plots
     
     # Plot 2: Adversarial Test Error Comparison
     ax2 = axes[0, 1]
-    for i, (name, df) in enumerate(model_data.items()):
+    for name, df in model_data.items():
         adv_test = df[df['test_name'] == 'adv_test']
         if not adv_test.empty:  # Check if data exists
+            color, linestyle = get_style_for_experiment(name)
             ax2.plot(adv_test['epoch'], adv_test['error'], 
-                     label=name, color=colors[i % len(colors)], 
-                     linestyle='-', linewidth=1.5)
+                     label=name, color=color, 
+                     linestyle=linestyle, linewidth=1.5)
     ax2.set_xlabel('Epoch')
     ax2.set_ylabel('Adversarial Test Error (%)')
     ax2.set_title('Adversarial Test Error Comparison')
@@ -156,12 +203,13 @@ def compare_test_curves(experiments_dir="experiments", output_dir="results/plots
     
     # Plot 3: Training Error Comparison
     ax3 = axes[1, 0]
-    for i, (name, df) in enumerate(model_data.items()):
+    for name, df in model_data.items():
         clean_train = df[df['test_name'] == 'clean_train']
         if not clean_train.empty:  # Check if data exists
+            color, linestyle = get_style_for_experiment(name)
             ax3.plot(clean_train['epoch'], clean_train['error'], 
-                     label=name, color=colors[i % len(colors)], 
-                     linestyle='-', linewidth=1.5)
+                     label=name, color=color, 
+                     linestyle=linestyle, linewidth=1.5)
     ax3.set_xlabel('Epoch')
     ax3.set_ylabel('Clean Training Error (%)')
     ax3.set_title('Clean Training Error Comparison')
@@ -170,12 +218,13 @@ def compare_test_curves(experiments_dir="experiments", output_dir="results/plots
     
     # Plot 4: Adversarial Training Error Comparison
     ax4 = axes[1, 1]
-    for i, (name, df) in enumerate(model_data.items()):
+    for name, df in model_data.items():
         adv_train = df[df['test_name'] == 'adv_train']
         if not adv_train.empty:  # Check if data exists
+            color, linestyle = get_style_for_experiment(name)
             ax4.plot(adv_train['epoch'], adv_train['error'], 
-                     label=name, color=colors[i % len(colors)], 
-                     linestyle='-', linewidth=1.5)
+                     label=name, color=color, 
+                     linestyle=linestyle, linewidth=1.5)
     ax4.set_xlabel('Epoch')
     ax4.set_ylabel('Adversarial Training Error (%)')
     ax4.set_title('Adversarial Training Error Comparison')
@@ -196,7 +245,7 @@ def compare_test_curves(experiments_dir="experiments", output_dir="results/plots
     # Create another plot showing the robustness (gap between clean and adversarial)
     plt.figure(figsize=(12, 8))
     
-    for i, (name, df) in enumerate(model_data.items()):
+    for name, df in model_data.items():
         clean_test = df[df['test_name'] == 'clean_test']
         adv_test = df[df['test_name'] == 'adv_test']
         
@@ -208,9 +257,10 @@ def compare_test_curves(experiments_dir="experiments", output_dir="results/plots
             
             generalization_gap = [adv_err - clean_err for clean_err, adv_err in zip(clean_errors, adv_errors)]
             
+            color, linestyle = get_style_for_experiment(name)
             plt.plot(common_epochs, generalization_gap, label=f'{name}', 
-                     color=colors[i % len(colors)], 
-                     linestyle='-', linewidth=1)
+                     color=color, 
+                     linestyle=linestyle, linewidth=1.5)
     
     plt.xlabel('Epoch')
     plt.ylabel('Robustness Gap (Adv - Clean Error) (%)')
