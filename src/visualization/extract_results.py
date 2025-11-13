@@ -65,6 +65,55 @@ def discover_experiments(experiments_dir="experiments"):
     
     return experiment_paths
 
+def save_results_to_txt(results_df, txt_output_file):
+    """将结果保存到txt文件"""
+    output_dir = os.path.dirname(txt_output_file) if os.path.dirname(txt_output_file) else '.'
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+    
+    with open(txt_output_file, 'w', encoding='utf-8') as f:
+        # 写入标题
+        f.write("最终结果摘要\n")
+        f.write("=" * 120 + "\n")
+        f.write(f"{'模型名称':<30} {'训练方法':<12} {'优化器':<10} {'攻击类型':<12} {'总时间(小时)':<15} "
+                f"{'干净准确率(%)':<15} {'对抗准确率(%)':<15} {'鲁棒性差距(%)':<15}\n")
+        f.write("-" * 120 + "\n")
+        
+        # 写入详细数据
+        for _, row in results_df.iterrows():
+            time_str = f"{row['total_time_hours']:.2f}" if row['total_time_hours'] > 0 else "N/A"
+            f.write(f"{row['model_name']:<30} {row['training_method']:<12} {row['optimizer']:<10} {row['attack_type']:<12} "
+                    f"{time_str:<15} {row['clean_test_accuracy']:<15.2f} {row['adv_test_accuracy']:<15.2f} "
+                    f"{row['robustness_gap']:<15.2f}\n")
+        
+        # 按训练方法分组统计
+        f.write("\n" + "=" * 100 + "\n")
+        f.write("按训练方法分组统计\n")
+        f.write("=" * 100 + "\n")
+        
+        for method in results_df['training_method'].unique():
+            method_data = results_df[results_df['training_method'] == method]
+            f.write(f"\n{method.upper()} 方法:\n")
+            f.write(f"  平均训练时间: {method_data['total_time_hours'].mean():.2f} 小时\n")
+            f.write(f"  平均干净准确率: {method_data['clean_test_accuracy'].mean():.2f}%\n")
+            f.write(f"  平均对抗准确率: {method_data['adv_test_accuracy'].mean():.2f}%\n")
+            f.write(f"  平均鲁棒性差距: {method_data['robustness_gap'].mean():.2f}%\n")
+        
+        # 按优化器分组统计
+        f.write("\n" + "=" * 100 + "\n")
+        f.write("按优化器分组统计\n")
+        f.write("=" * 100 + "\n")
+        
+        for optimizer in results_df['optimizer'].unique():
+            opt_data = results_df[results_df['optimizer'] == optimizer]
+            f.write(f"\n{optimizer.upper()} 优化器:\n")
+            f.write(f"  平均训练时间: {opt_data['total_time_hours'].mean():.2f} 小时\n")
+            f.write(f"  平均干净准确率: {opt_data['clean_test_accuracy'].mean():.2f}%\n")
+            f.write(f"  平均对抗准确率: {opt_data['adv_test_accuracy'].mean():.2f}%\n")
+            f.write(f"  平均鲁棒性差距: {opt_data['robustness_gap'].mean():.2f}%\n")
+    
+    print(f"✓ Results also saved to TXT file: {txt_output_file}")
+
 def extract_final_results(experiments_dir="experiments", output_file="results/final_results.csv"):
     """
     提取所有模型的最终结果
@@ -154,12 +203,16 @@ def extract_final_results(experiments_dir="experiments", output_file="results/fi
     # 按训练方法、优化器、攻击类型排序
     results_df = results_df.sort_values(['training_method', 'optimizer', 'attack_type'])
     
-    # 保存结果
+    # 保存结果到CSV
     output_dir = os.path.dirname(output_file) if os.path.dirname(output_file) else '.'
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
     results_df.to_csv(output_file, index=False, float_format='%.4f')
     print(f"\n✓ Results saved to: {output_file}")
+    
+    # 保存结果到TXT
+    txt_output_file = output_file.replace('.csv', '.txt') if output_file.endswith('.csv') else output_file + '.txt'
+    save_results_to_txt(results_df, txt_output_file)
     
     # 打印摘要
     print("\n" + "="*120)
@@ -218,4 +271,3 @@ def main():
 # python src/visualization/extract_results.py --experiments_dir experiments --output_file results/final_results.csv
 if __name__ == "__main__":
     main()
-

@@ -96,15 +96,15 @@ def get_style_for_experiment(name):
     - 4种醒目的颜色根据优化器和攻击类型组合分配
     """
     # 4种醒目的对比颜色
-    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']  # 蓝色、橙色、绿色、红色
+    colors = ['#a0add0', '#e47178', '#f5dc75', '#75c298']  # 蓝色、橙色、绿色、红色
     
     # 根据训练方法确定线型
     if name.startswith('fast_'):
-        linestyle = '-'
+        linestyle = 'solid'
     elif name.startswith('free_'):
-        linestyle = '--'
+        linestyle = 'dotted'
     elif name.startswith('vanilla_'):
-        linestyle = ':'
+        linestyle = 'dashdot'
     else:
         linestyle = '-'
     
